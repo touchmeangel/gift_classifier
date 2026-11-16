@@ -1,3 +1,5 @@
 import torch
 
-# telegram gift price classifier
+# p = price
+# f = floor of that collection at that time
+# log(p/f)
