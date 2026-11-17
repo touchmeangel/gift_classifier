@@ -7,6 +7,7 @@ import pydantic
 import asyncio
 
 from .types.collections import CollectionsResponse
+from .types.actions import ActionsResponse
 from .consts import DEFAULT_HEADERS, BASE_URL
 
 class APIError(Exception):
@@ -190,8 +191,8 @@ class PortalsAPI:
         offset: int = 0,
         limit: int = 20,
         action_types: Sequence[ActionType] | None = None,
-    ):
-        return await self._get(
+    ) -> ActionsResponse:
+        data = await self._get(
             "market/actions/",
             params={
                 "offset": offset,
@@ -199,3 +200,9 @@ class PortalsAPI:
                 "action_types": ",".join(action_types) if action_types else None,
             },
         )
+        
+        try:
+            return ActionsResponse.model_validate(data)
+        except pydantic.ValidationError as exc:
+            raise ResponseParsingError("Unexpected response shape") from exc
+
