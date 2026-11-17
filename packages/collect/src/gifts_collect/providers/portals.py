@@ -6,9 +6,19 @@ import json
 
 BASE_URL = "https://portal-market.com/api/"
 
-class APIError(Exception):
-    """Base exception for API response errors."""
+USER_AGENT = "Mozilla/5.0 (Linux; Android 10; SM-G980F Build/QP1A.190711.020; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/80.0.3987.149 Mobile Safari/537.36"
 
+
+DEFAULT_HEADERS = {
+    "Accept": (
+        "text/html,application/xhtml+xml,application/xml;q=0.9,"
+        "image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8"
+    ),
+    "User-Agent": USER_AGENT,
+}
+
+
+class APIError(Exception):
     def __init__(
         self,
         status: int,
@@ -51,31 +61,34 @@ class ServerError(APIError):
 
 
 class APIConnectionError(Exception):
-    """Connection, DNS, timeout, or other transport-level failure."""
+    pass
+
 
 class ClientInitializeError(Exception):
     def __init__(self) -> None:
-        super().__init__("Client must be used inside 'async with Client()'")
+        super().__init__(
+            "Client must be used inside 'async with Client()'"
+        )
+
 
 QueryValue: TypeAlias = str | int | float | bool | None
 
-class Client:    
-    def __init__(self,
-        *,
-        authorization: str | None = None,
-        cf_clearance: str | None = None
-    ) -> None:
-        self.session = aiohttp.ClientSession(base_url=BASE_URL)
-        self.headers = {
-            "Accept": "application/json, text/plain, */*",
-        }
 
-        if authorization:
-            self.headers["Authorization"] = authorization
+class Client:
+    def __init__(self, *, cf_clearance: str | None = None) -> None:
+        self.cf_clearance = cf_clearance
+        self.session: aiohttp.ClientSession | None = None
 
-        self.cookies = {}
-        if cf_clearance:
-            self.cookies["cf_clearance"] = cf_clearance
+    async def __aenter__(self):
+        self.session = aiohttp.ClientSession()
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        await self.close()
+
+    async def close(self) -> None:
+        if self.session and not self.session.closed:
+            await self.session.close()
 
     @staticmethod
     def raise_for_error(status: int, data: Any) -> None:
@@ -109,7 +122,15 @@ class Client:
             error_class = APIError
 
         raise error_class(status, message, payload=data)
+
+    def cookies(self) -> dict:
+        cookies = {}
         
+        if self.cf_clearance is not None:
+            cookies["cf_clearance"] = self.cf_clearance
+        
+        return cookies
+    
     async def _get(
         self,
         action: str,
@@ -118,15 +139,22 @@ class Client:
     ) -> Any:
         if self.session is None or self.session.closed:
             raise ClientInitializeError()
-        
+
         query = {
             key: str(value).lower() if isinstance(value, bool) else value
             for key, value in (params or {}).items()
             if value is not None
         }
-        
+
+        url = f"{BASE_URL}{action.lstrip('/')}"
+
         try:
-            async with self.session.get(action, params=query, headers=self.headers) as response:
+            async with self.session.get(
+                url,
+                params=query,
+                headers=DEFAULT_HEADERS,
+                cookies=self.cookies(),
+            ) as response:
                 raw = await response.text()
 
                 try:
@@ -140,17 +168,18 @@ class Client:
             raise APIConnectionError(
                 "Failed to communicate with the API"
             ) from exc
-        
-    async def __aenter__(self):
-        self.session = await self.session.__aenter__()
-        return self
-    
-    async def __aexit__(self, exc_type, exc, tb):
-        await self.close()
-        
-    async def close(self) -> None:
-        if self.session and not self.session.closed:
-            await self.session.close()
-            
-    async def collections(self, offset: int = 0, limit: int = 150, favorites_only: bool = False):
-        return await self._get("/collections", params={ "offset": offset, "limit":limit, "favorites_only":favorites_only })
+
+    async def collections(
+        self,
+        offset: int = 0,
+        limit: int = 150,
+        favorites_only: bool = False,
+    ):
+        return await self._get(
+            "collections",
+            params={
+                "offset": offset,
+                "limit": limit,
+                "favorites_only": favorites_only,
+            },
+        )
