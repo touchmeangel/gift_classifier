@@ -1,10 +1,11 @@
-from .types.collections import CollectionsResponse
-from collections.abc import Mapping, Sequence
-from typing import Any, TypeAlias, Literal
-import pydantic
-import asyncio
-import aiohttp
 import json
+from collections.abc import Mapping, Sequence
+from typing import Any, Literal, TypeAlias
+
+import aiohttp
+import pydantic
+
+from .types.collections import CollectionsResponse
 
 BASE_URL = "https://portal-market.com/api/"
 
@@ -68,11 +69,9 @@ class APIConnectionError(Exception):
 
 class ClientInitializeError(Exception):
     def __init__(self) -> None:
-        super().__init__(
-            "Client must be used inside 'async with Client()'"
-        )
-        
-        
+        super().__init__("Client must be used inside 'async with Client()'")
+
+
 class ResponseParsingError(Exception):
     pass
 
@@ -128,13 +127,14 @@ class Client:
 
     def cookies(self) -> dict:
         cookies = {}
-        
+
         if self.cf_clearance is not None:
             cookies["cf_clearance"] = self.cf_clearance
-        
+
         return cookies
-    
+
     QueryValue: TypeAlias = str | int | float | bool | None
+
     async def _get(
         self,
         action: str,
@@ -168,10 +168,8 @@ class Client:
 
                 self.raise_for_error(response.status, data)
                 return data
-        except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
-            raise APIConnectionError(
-                "Failed to communicate with the API"
-            ) from exc
+        except (TimeoutError, aiohttp.ClientError) as exc:
+            raise APIConnectionError("Failed to communicate with the API") from exc
 
     async def collections(
         self,
@@ -188,19 +186,22 @@ class Client:
                 "favorites_only": favorites_only,
             },
         )
-        
+
         try:
             return CollectionsResponse.model_validate(data)
         except pydantic.ValidationError as exc:
             raise ResponseParsingError("Unexpected response shape") from exc
-    
-    ActionType = Literal["buy", "sell", "lucky_buy", "lucky_craft", "listing", "price_update"]
+
+    ActionType = Literal[
+        "buy", "sell", "lucky_buy", "lucky_craft", "listing", "price_update"
+    ]
+
     async def actions(
         self,
         *,
         offset: int = 0,
         limit: int = 20,
-        action_types: Sequence[ActionType] | None = None
+        action_types: Sequence[ActionType] | None = None,
     ):
         return await self._get(
             "market/actions/",
