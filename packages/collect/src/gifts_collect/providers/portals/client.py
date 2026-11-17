@@ -1,5 +1,7 @@
+from .types.collections import CollectionsResponse
 from collections.abc import Mapping, Sequence
 from typing import Any, TypeAlias
+import pydantic
 import asyncio
 import aiohttp
 import json
@@ -69,6 +71,10 @@ class ClientInitializeError(Exception):
         super().__init__(
             "Client must be used inside 'async with Client()'"
         )
+        
+        
+class ResponseParsingError(Exception):
+    pass
 
 
 QueryValue: TypeAlias = str | int | float | bool | None
@@ -175,7 +181,7 @@ class Client:
         limit: int = 150,
         favorites_only: bool = False,
     ):
-        return await self._get(
+        data = await self._get(
             "collections",
             params={
                 "offset": offset,
@@ -183,3 +189,8 @@ class Client:
                 "favorites_only": favorites_only,
             },
         )
+        
+        try:
+            return CollectionsResponse.model_validate(data)
+        except pydantic.ValidationError as exc:
+            raise ResponseParsingError("Unexpected response shape") from exc
