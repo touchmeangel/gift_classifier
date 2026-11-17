@@ -11,6 +11,8 @@ dependencies = [
     "aiohttp>=3.14.5",
     "pydantic>=2.14.3",
     "pyrofork>=2.3.69",
+    "rich>=15.0.0",
+    "tgcrypto>=1.2.5",
 ]
 
 [build-system]
