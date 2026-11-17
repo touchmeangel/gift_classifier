@@ -12,7 +12,7 @@ from pyrogram.raw.types.input_user import InputUser
 from pyrogram.raw.types.web_view_result_url import WebViewResultUrl
 
 from .client import AuthProvider
-from .consts import TELEGRAM_BOT_USERNAME, TELEGRAM_DIRECT_LINK
+from .consts import TELEGRAM_BOT_USERNAME, TELEGRAM_APP_SHORT_NAME
 
 async def get_init_data(tg: TgClient) -> str:
     peer = await tg.resolve_peer(TELEGRAM_BOT_USERNAME)
@@ -22,7 +22,7 @@ async def get_init_data(tg: TgClient) -> str:
     bot = InputUser(user_id=peer.user_id, access_hash=peer.access_hash)
     app = InputBotAppShortName(
         bot_id=cast(BaseInputUser, bot),
-        short_name=TELEGRAM_DIRECT_LINK,
+        short_name=TELEGRAM_APP_SHORT_NAME,
     )
     result = cast(
         WebViewResultUrl,
