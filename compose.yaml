@@ -1,0 +1,20 @@
+services:
+  collect:
+    build: { context: ., dockerfile: docker/collect.Dockerfile }
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+  train:
+    build: { context: ., dockerfile: docker/ml.Dockerfile }
+    profiles: ["train"]
+    volumes:
+      - ./data:/app/data
+      - ./runs:/app/runs
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
