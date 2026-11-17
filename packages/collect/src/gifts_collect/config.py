@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import os
+import dotenv
 from pathlib import Path
+
+dotenv.load_dotenv()
 
 def require_env(env: str) -> str:
     res = os.getenv(env)
