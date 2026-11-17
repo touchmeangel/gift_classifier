@@ -1,0 +1,53 @@
+name: Lint, Type Check & Test
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  quality-checks:
+    name: Lint, Type Check & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install uv
+        run: pip install --upgrade uv
+
+      - name: Install workspace & dev dependencies
+        run: uv sync --all-packages --group dev
+
+      - name: Ruff - Lint & Format Check
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Bandit - Security Scan
+        run: uv run bandit -r . -f json -o bandit-report.json || true
+
+      - name: Upload Bandit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit-report.json
+
+      - name: MyPy - Type Check
+        run: uv run mypy . --ignore-missing-imports || true
+
+      - name: Run tests with coverage
+        run: uv run pytest --cov --junitxml=junit.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: junit.xml
