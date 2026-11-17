@@ -1,6 +1,6 @@
 from .types.collections import CollectionsResponse
 from collections.abc import Mapping, Sequence
-from typing import Any, TypeAlias
+from typing import Any, TypeAlias, Literal
 import pydantic
 import asyncio
 import aiohttp
@@ -77,9 +77,6 @@ class ResponseParsingError(Exception):
     pass
 
 
-QueryValue: TypeAlias = str | int | float | bool | None
-
-
 class Client:
     def __init__(self, *, cf_clearance: str | None = None) -> None:
         self.cf_clearance = cf_clearance
@@ -137,6 +134,7 @@ class Client:
         
         return cookies
     
+    QueryValue: TypeAlias = str | int | float | bool | None
     async def _get(
         self,
         action: str,
@@ -177,6 +175,7 @@ class Client:
 
     async def collections(
         self,
+        *,
         offset: int = 0,
         limit: int = 150,
         favorites_only: bool = False,
@@ -194,3 +193,20 @@ class Client:
             return CollectionsResponse.model_validate(data)
         except pydantic.ValidationError as exc:
             raise ResponseParsingError("Unexpected response shape") from exc
+    
+    ActionType = Literal["buy", "sell", "lucky_buy", "lucky_craft", "listing", "price_update"]
+    async def actions(
+        self,
+        *,
+        offset: int = 0,
+        limit: int = 20,
+        action_types: Sequence[ActionType] | None = None
+    ):
+        return await self._get(
+            "market/actions/",
+            params={
+                "offset": offset,
+                "limit": limit,
+                "action_types": ",".join(action_types) if action_types else None,
+            },
+        )
