@@ -6,13 +6,14 @@ import re
 import signal
 import struct
 from contextlib import contextmanager
-from typing import Awaitable, Iterator, TypeVar
+from typing import Awaitable, Generator, TypeVar
 
 from pyrogram import Client, enums
 from pyrogram.errors import (
     ApiIdInvalid,
     BadRequest,
     FloodWait,
+    Forbidden,
     PasswordHashInvalid,
     PhoneCodeExpired,
     PhoneCodeInvalid,
@@ -25,14 +26,9 @@ from pyrogram.errors import (
     Unauthorized,
 )
 from pyrogram.types import SentCode, User
-from rich import box
-from rich.align import Align
-from rich.console import Console, Group
+from rich.console import Console
 from rich.markup import escape
-from rich.panel import Panel
 from rich.prompt import Prompt
-from rich.table import Table
-from rich.text import Text
 
 from gifts_collect import config
 
@@ -44,13 +40,13 @@ MAX_PASSWORD_ATTEMPTS = 5
 _PHONE_RE = re.compile(r"^\+[1-9]\d{6,14}$")
 
 _DELIVERY = {
-    "APP": "your Telegram app (check your other logged-in device)",
+    "APP": "Telegram app (check your other device)",
     "SMS": "SMS",
-    "CALL": "a phone call",
-    "FLASH_CALL": "a flash call",
-    "MISSED_CALL": "a missed call (enter the last digits of the caller's number)",
+    "CALL": "phone call",
+    "FLASH_CALL": "flash call",
+    "MISSED_CALL": "missed call (enter the last digits of the caller's number)",
     "EMAIL_CODE": "e-mail",
-    "FRAGMENT_SMS": "Fragment (anonymous number)",
+    "FRAGMENT_SMS": "Fragment",
 }
 
 T = TypeVar("T")
@@ -65,19 +61,19 @@ class AuthCancelled(AuthError):
 
 
 def _ok(msg: str) -> None:
-    console.print(f"[bold green]✔[/] {msg}")
+    console.print(msg)
 
 
 def _err(msg: str) -> None:
-    console.print(f"[bold red]✘[/] {msg}")
+    console.print(f"[red]{msg}[/]")
 
 
 def _warn(msg: str) -> None:
-    console.print(f"[bold yellow]![/] {msg}")
+    console.print(f"[yellow]{msg}[/]")
 
 
 def _info(msg: str) -> None:
-    console.print(f"[dim]•[/] {msg}")
+    console.print(f"[dim]{msg}[/]")
 
 
 def normalize_phone(raw: str) -> str:
@@ -111,25 +107,18 @@ def _fmt_wait(seconds: object) -> str:
     parts = [f"{hours}h" if hours else "", f"{minutes}m" if minutes else "", f"{secs}s" if secs else ""]
     return " ".join(p for p in parts if p)
 
-
 @contextmanager
-def _interruptible() -> Iterator[None]:
-    """Let Ctrl+C interrupt a blocking prompt even under ``asyncio.run()``.
-
-    asyncio's own SIGINT handler only *cancels* the main task, which can't take
-    effect while we're sitting in ``input()`` - the first Ctrl+C would appear to
-    do nothing.
-    """
+def _interruptible() -> Generator[None, None, None]:
     try:
         previous = signal.signal(signal.SIGINT, signal.default_int_handler)
     except ValueError:  # not the main thread
         yield
         return
+
     try:
         yield
     finally:
-        signal.signal(signal.SIGINT, previous if previous is not None else signal.SIG_DFL)
-
+        signal.signal(signal.SIGINT, previous)
 
 def _ask(label: str, *, password: bool = False) -> str:
     with _interruptible():
@@ -141,12 +130,11 @@ def _ask(label: str, *, password: bool = False) -> str:
 
 
 async def _spin(message: str, awaitable: Awaitable[T]) -> T:
-    with console.status(f"[cyan]{message}[/]", spinner="dots"):
+    with console.status(f"[dim]{message}[/]", spinner="dots"):
         return await awaitable
 
 
 def make_client(session_string: str | None = None) -> Client:
-    """Build a Pyrogram client. Same fingerprint as the Portals auth provider."""
     return Client(
         "tg",
         api_id=config.API_ID,
@@ -182,78 +170,47 @@ def logout() -> bool:
     try:
         config.SESSION_PATH.unlink()
     except FileNotFoundError:
-        _info("No saved session found.")
+        _info("No saved session.")
         return False
-    _ok("Local session removed.")
+    _ok("Session removed.")
     return True
 
 
-def _banner() -> None:
-    body = Group(
-        Text("✈  Gifts Collect", style="bold cyan", justify="center"),
-        Text(""),
-        Text("A Telegram account is required to continue.", justify="center"),
-        Text("Your session is stored locally and never leaves this machine.", style="dim", justify="center"),
-    )
-    console.print()
-    console.print(Align.center(Panel(body, box=box.ROUNDED, border_style="cyan", padding=(1, 4))))
-    console.print()
-
-
-def _welcome(user: User, *, returning: bool) -> None:
+def _welcome(user: User) -> None:
     name = " ".join(p for p in (user.first_name, user.last_name) if p) or "Unknown"
-    grid = Table.grid(padding=(0, 2))
-    grid.add_column(style="dim", justify="right")
-    grid.add_column()
-    grid.add_row("Name", f"[bold]{escape(name)}[/]" + (" ⭐" if getattr(user, "is_premium", False) else ""))
-    if user.username:
-        grid.add_row("Username", f"@{escape(user.username)}")
-    grid.add_row("ID", str(user.id))
-    if getattr(user, "phone_number", None):
-        grid.add_row("Phone", mask_phone(user.phone_number))
-    grid.add_row("Session", f"[dim]{escape(str(config.SESSION_PATH))}[/]")
-    console.print(
-        Panel(
-            grid,
-            title="[bold green]Welcome back[/]" if returning else "[bold green]Signed in[/]",
-            box=box.ROUNDED,
-            border_style="green",
-            padding=(1, 3),
-            expand=False,
-        )
-    )
+    handle = f" [dim]@{escape(user.username)}[/]" if user.username else ""
+    console.print(f"Signed in as [bold]{escape(name)}[/]{handle}")
 
 
 def _ask_phone() -> str:
-    console.rule("[bold cyan]1 · Phone number[/]", style="cyan")
-    console.print("[dim]International format, e.g. +1 202 555 0123[/]")
+    _info("Phone number in international format, e.g. +12025550123")
     while True:
-        phone = normalize_phone(_ask("[bold cyan]Phone[/]"))
+        phone = normalize_phone(_ask("Phone"))
         if _PHONE_RE.match(phone):
             return phone
-        _err("That doesn't look like a valid number. Start with the country code, e.g. [bold]+12025550123[/].")
+        _err("Invalid number. Start with the country code.")
 
 
 def _ask_code() -> str | None:
     while True:
-        raw = _ask("[bold cyan]Login code[/] [dim](or 'r' to resend)[/]").lower()
+        raw = _ask("Code [dim](r to resend)[/]").lower()
         if raw in {"r", "resend"}:
             return None
         digits = re.sub(r"[\s\-]", "", raw)
         if digits.isdigit() and 4 <= len(digits) <= 8:
             return digits
-        _err("The code consists of 5-6 digits.")
+        _err("Enter the digits from the code.")
 
 
 def _announce_delivery(sent: SentCode) -> None:
     kind = getattr(sent.type, "name", str(sent.type))
     via = _DELIVERY.get(kind, kind.lower().replace("_", " "))
-    _ok(f"Code sent via [bold]{escape(via)}[/].")
+    _info(f"Code sent via {escape(via)}.")
 
 
 async def _send_code(client: Client, phone: str) -> SentCode:
     try:
-        sent = await _spin("Requesting login code…", client.send_code(phone))
+        sent = await _spin("Requesting code…", client.send_code(phone))
     except PhoneNumberBanned:
         raise AuthError("This phone number is banned by Telegram.") from None
     except PhoneNumberFlood:
@@ -274,19 +231,16 @@ async def _resend_code(client: Client, phone: str, sent: SentCode) -> SentCode:
 
 
 async def _two_factor(client: Client) -> User:
-    console.print()
-    console.rule("[bold cyan]3 · Two-step verification[/]", style="cyan")
-    console.print("[dim]Your account is protected with a cloud password.[/]")
     try:
         hint = await client.get_password_hint()
         if hint:
-            _info(f"Hint: [italic]{escape(hint)}[/]")
+            _info(f"Password hint: {escape(hint)}")
     except RPCError:
         pass
 
     attempts_left = MAX_PASSWORD_ATTEMPTS
     while attempts_left:
-        password = _ask("[bold cyan]Password[/] [dim](hidden)[/]", password=True)
+        password = _ask("Password", password=True)
         if not password:
             continue
         try:
@@ -294,7 +248,7 @@ async def _two_factor(client: Client) -> User:
         except PasswordHashInvalid:
             attempts_left -= 1
             if attempts_left:
-                _err(f"Incorrect password. [dim]{attempts_left} attempt(s) left.[/]")
+                _err(f"Incorrect password. {attempts_left} attempt(s) left.")
     raise AuthError("Too many incorrect passwords.")
 
 
@@ -305,10 +259,8 @@ async def _login(client: Client) -> User:
             sent = await _send_code(client, phone)
             break
         except PhoneNumberInvalid:
-            _err("Telegram doesn't recognise that number. Double-check it and try again.")
+            _err("Telegram doesn't recognise that number.")
 
-    console.print()
-    console.rule("[bold cyan]2 · Login code[/]", style="cyan")
     attempts_left = MAX_CODE_ATTEMPTS
     while attempts_left:
         code = _ask_code()
@@ -318,13 +270,13 @@ async def _login(client: Client) -> User:
         try:
             result = await _spin("Verifying…", client.sign_in(phone, sent.phone_code_hash, code))
         except SessionPasswordNeeded:
-            return await _two_factor(client)  # 3 · optional 2FA
+            return await _two_factor(client)
         except PhoneCodeInvalid:
             attempts_left -= 1
             if attempts_left:
-                _err(f"Wrong code. [dim]{attempts_left} attempt(s) left.[/]")
+                _err(f"Wrong code. {attempts_left} attempt(s) left.")
         except PhoneCodeExpired:
-            _warn("That code has expired - sending a new one.")
+            _warn("Code expired - sending a new one.")
             sent = await _send_code(client, phone)
         except PhoneNumberUnoccupied:
             raise AuthError("No Telegram account exists for this number. Register in the official app first.") from None
@@ -338,15 +290,14 @@ async def _login(client: Client) -> User:
 async def _interactive_login() -> str:
     client = make_client()
     try:
-        await _spin("Connecting to Telegram…", client.connect())
+        await _spin("Connecting…", client.connect())
         user = await _login(client)
         session_string = await client.export_session_string()
     finally:
         if client.is_connected:
             await client.disconnect()
     _save_session(session_string)
-    console.print()
-    _welcome(user, returning=False)
+    _welcome(user)
     return session_string
 
 
@@ -362,24 +313,35 @@ async def _check_session(session_string: str) -> User | None:
             await client.disconnect()
 
 
+def _forbidden(e: Forbidden) -> AuthError:
+    if "RECAPTCHA" in str(e):
+        return AuthError(
+            "Telegram requires a reCAPTCHA check for this login, which only official apps can complete. "
+            "Try again later or from another network."
+        )
+    return AuthError(f"Telegram refused the request: {e}")
+
+
 async def ensure_session() -> str:
     try:
         saved = load_session()
         if saved:
-            with console.status("[cyan]Checking saved session…[/]", spinner="dots"):
+            with console.status("[dim]Checking saved session…[/]", spinner="dots"):
                 user = await _check_session(saved)
             if user is not None:
-                _welcome(user, returning=True)
+                _welcome(user)
                 return saved
-            _warn("Saved session is no longer valid - please sign in again.")
+            _warn("Saved session is no longer valid - sign in again.")
             try:
                 config.SESSION_PATH.unlink()
             except FileNotFoundError:
                 pass
 
-        _banner()
+        _info("Sign in to Telegram. The session is stored locally.")
         return await _interactive_login()
 
+    except Forbidden as e:
+        raise _forbidden(e) from None
     except FloodWait as e:
         raise AuthError(f"Telegram asked us to wait {_fmt_wait(e.value)} before retrying.") from None
     except (OSError, asyncio.TimeoutError) as e:
