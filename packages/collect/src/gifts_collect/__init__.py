@@ -24,8 +24,9 @@ async def main():
         for collection in collections.collections:
             print(f"collection: {collection.name}, floor: {collection.floor_price}")
 
-        actions = await c.actions()
-        print(f"a: {actions}")
+        actions = await c.actions(action_types=['buy', 'sell'])
+        for action in actions.actions:
+            print(f"action: {action.type} {action.amount}")
 
 
 def start() -> None:
