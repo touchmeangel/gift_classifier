@@ -1,3 +1,4 @@
+
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
@@ -22,7 +23,7 @@ class Nft(BaseModel):
     photo_url: str | None = None
     collection_id: UUID
     external_collection_number: int
-    price: Decimal
+    price: Decimal | None = None
     status: str
     animation_url: str | None = None
     has_animation: bool
@@ -35,8 +36,11 @@ class Nft(BaseModel):
 
     @field_validator("photo_url", "animation_url", mode="before")
     @classmethod
-    def empty_url_to_none(cls, v):
-        return v or None
+    def empty_url_to_none(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            value = value.strip()
+            return value or None
+        return value
 
 
 class Action(BaseModel):
