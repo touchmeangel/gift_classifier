@@ -26,7 +26,7 @@ async def main():
 
         actions = await c.actions(action_types=['buy', 'sell'])
         for action in actions.actions:
-            print(f"action: {action.type} {action.amount}")
+            print(f"action: {action.type} {action.nft.name} {action.amount}")
 
 
 def start() -> None:
