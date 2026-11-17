@@ -1,7 +1,6 @@
 [project]
 name = "gifts-common"
 version = "0.1.0"
-description = "Add your description here"
 readme = "README.md"
 authors = [
     { name = "touchme", email = "vodkavoid@proton.me" }

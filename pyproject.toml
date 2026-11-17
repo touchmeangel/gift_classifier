@@ -1,7 +1,7 @@
 [project]
 name = "gift_regression"
 version = "0.1.0"
-description = "Add your description here"
+description = "Does a Telegram gifts look explain its price beyond its rarity metadata? CNN embeddings vs metadata baselines, tested on unseen collections"
 readme = "README.md"
 authors = [
     { name = "touchme", email = "vodkavoid@proton.me" }

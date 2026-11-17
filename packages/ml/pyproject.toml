@@ -1,7 +1,7 @@
 [project]
 name = "gifts-ml"
 version = "0.1.0"
-description = "Add your description here"
+description = "gift_regression CNN"
 readme = "README.md"
 authors = [
     { name = "touchme", email = "vodkavoid@proton.me" }
