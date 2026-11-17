@@ -1,25 +1,13 @@
 import json
+from typing import Any, Literal, TypeAlias, Callable, Awaitable
 from collections.abc import Mapping, Sequence
-from typing import Any, Literal, TypeAlias
 
 import aiohttp
 import pydantic
+import asyncio
 
 from .types.collections import CollectionsResponse
-
-BASE_URL = "https://portal-market.com/api/"
-
-USER_AGENT = "Mozilla/5.0 (Linux; Android 10; SM-G980F Build/QP1A.190711.020; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/80.0.3987.149 Mobile Safari/537.36"
-
-
-DEFAULT_HEADERS = {
-    "Accept": (
-        "text/html,application/xhtml+xml,application/xml;q=0.9,"
-        "image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8"
-    ),
-    "User-Agent": USER_AGENT,
-}
-
+from .consts import DEFAULT_HEADERS, BASE_URL
 
 class APIError(Exception):
     def __init__(
@@ -75,10 +63,13 @@ class ClientInitializeError(Exception):
 class ResponseParsingError(Exception):
     pass
 
+AuthProvider = Callable[[], Awaitable[str]]
 
-class Client:
-    def __init__(self, *, cf_clearance: str | None = None) -> None:
-        self.cf_clearance = cf_clearance
+class PortalsAPI:
+    def __init__(self, *, auth_provider: AuthProvider | None = None) -> None:
+        self._provider = auth_provider
+        self._auth_lock = asyncio.Lock()
+        self._auth = None
         self.session: aiohttp.ClientSession | None = None
 
     async def __aenter__(self):
@@ -125,52 +116,49 @@ class Client:
 
         raise error_class(status, message, payload=data)
 
-    def cookies(self) -> dict:
-        cookies = {}
-
-        if self.cf_clearance is not None:
-            cookies["cf_clearance"] = self.cf_clearance
-
-        return cookies
+    async def _authorize(self, *, stale: str | None = None) -> str:
+        async with self._auth_lock:
+            if self._auth is None or self._auth == stale:
+                if self._provider is None:
+                    raise AuthenticationError(401, "auth missing", payload=None)
+                self._auth = await self._provider()
+            return self._auth
 
     QueryValue: TypeAlias = str | int | float | bool | None
-
-    async def _get(
-        self,
-        action: str,
-        *,
-        params: Mapping[str, QueryValue] | None = None,
-    ) -> Any:
+    async def _get(self, action: str, *, params=None) -> Any:
         if self.session is None or self.session.closed:
             raise ClientInitializeError()
-
-        query = {
-            key: str(value).lower() if isinstance(value, bool) else value
-            for key, value in (params or {}).items()
-            if value is not None
-        }
-
+        query = {k: str(v).lower() if isinstance(v, bool) else v
+                 for k, v in (params or {}).items() if v is not None}
         url = f"{BASE_URL}{action.lstrip('/')}"
 
+        token = await self._authorize() if self._provider else None
         try:
-            async with self.session.get(
-                url,
-                params=query,
-                headers=DEFAULT_HEADERS,
-                cookies=self.cookies(),
-            ) as response:
-                raw = await response.text()
+            return await self._send(url, query, token)
+        except AuthenticationError:
+            if token is None or self._provider is None:
+                raise
+            token = await self._authorize(stale=token)
+            return await self._send(url, query, token)
 
+    async def _send(self, url: str, query: dict, token: str | None) -> Any:
+        if self.session is None or self.session.closed:
+            raise ClientInitializeError()
+        headers = dict(DEFAULT_HEADERS)
+        if token:
+            headers["Authorization"] = f"tma {token}"
+        try:
+            async with self.session.get(url, params=query, headers=headers) as response:
+                text = await response.text()
                 try:
-                    data = json.loads(raw) if raw else None
+                    data = json.loads(text) if text else None
                 except json.JSONDecodeError:
-                    data = raw
-
+                    data = text
                 self.raise_for_error(response.status, data)
                 return data
         except (TimeoutError, aiohttp.ClientError) as exc:
             raise APIConnectionError("Failed to communicate with the API") from exc
-
+        
     async def collections(
         self,
         *,
