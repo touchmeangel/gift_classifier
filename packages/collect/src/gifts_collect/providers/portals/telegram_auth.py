@@ -1,7 +1,8 @@
 from typing import cast
 from urllib.parse import parse_qs, urlparse
 
-from pyrogram import Client as TgClient, enums
+from pyrogram import Client as TgClient
+from pyrogram import enums
 from pyrogram.raw.base.input_bot_app import InputBotApp
 from pyrogram.raw.base.input_peer import InputPeer
 from pyrogram.raw.base.input_user import InputUser as BaseInputUser
@@ -12,7 +13,8 @@ from pyrogram.raw.types.input_user import InputUser
 from pyrogram.raw.types.web_view_result_url import WebViewResultUrl
 
 from .client import AuthProvider
-from .consts import TELEGRAM_BOT_USERNAME, TELEGRAM_APP_SHORT_NAME
+from .consts import TELEGRAM_APP_SHORT_NAME, TELEGRAM_BOT_USERNAME
+
 
 async def get_init_data(tg: TgClient) -> str:
     peer = await tg.resolve_peer(TELEGRAM_BOT_USERNAME)
@@ -44,7 +46,8 @@ def telegram_provider(
     *,
     device_model: str = "",
     app_version: str = "",
-    system_version: str = "") -> AuthProvider:
+    system_version: str = "",
+) -> AuthProvider:
     async def provider() -> str:
         async with TgClient(
             "tg",

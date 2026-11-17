@@ -1,14 +1,15 @@
+import asyncio
 import json
-from typing import Any, Literal, TypeAlias, Callable, Awaitable
-from collections.abc import Mapping, Sequence
+from collections.abc import Awaitable, Callable, Sequence
+from typing import Any, Literal, TypeAlias
 
 import aiohttp
 import pydantic
-import asyncio
 
-from .types.collections import CollectionsResponse
+from .consts import BASE_URL, DEFAULT_HEADERS
 from .types.actions import ActionsResponse
-from .consts import DEFAULT_HEADERS, BASE_URL
+from .types.collections import CollectionsResponse
+
 
 class APIError(Exception):
     def __init__(
@@ -64,7 +65,9 @@ class ClientInitializeError(Exception):
 class ResponseParsingError(Exception):
     pass
 
+
 AuthProvider = Callable[[], Awaitable[str]]
+
 
 class PortalsAPI:
     def __init__(self, *, auth_provider: AuthProvider | None = None) -> None:
@@ -126,11 +129,15 @@ class PortalsAPI:
             return self._auth
 
     QueryValue: TypeAlias = str | int | float | bool | None
+
     async def _get(self, action: str, *, params=None) -> Any:
         if self.session is None or self.session.closed:
             raise ClientInitializeError()
-        query = {k: str(v).lower() if isinstance(v, bool) else v
-                 for k, v in (params or {}).items() if v is not None}
+        query = {
+            k: str(v).lower() if isinstance(v, bool) else v
+            for k, v in (params or {}).items()
+            if v is not None
+        }
         url = f"{BASE_URL}{action.lstrip('/')}"
 
         token = await self._authorize() if self._provider else None
@@ -159,7 +166,7 @@ class PortalsAPI:
                 return data
         except (TimeoutError, aiohttp.ClientError) as exc:
             raise APIConnectionError("Failed to communicate with the API") from exc
-        
+
     async def collections(
         self,
         *,
@@ -200,9 +207,8 @@ class PortalsAPI:
                 "action_types": ",".join(action_types) if action_types else None,
             },
         )
-        
+
         try:
             return ActionsResponse.model_validate(data)
         except pydantic.ValidationError as exc:
             raise ResponseParsingError("Unexpected response shape") from exc
-

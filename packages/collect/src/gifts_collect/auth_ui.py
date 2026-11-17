@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import asyncio
 import os
 import re
 import signal
 import struct
+from collections.abc import Awaitable, Generator
 from contextlib import contextmanager
-from typing import Awaitable, Generator, TypeVar
+from typing import TypeVar
 
 from pyrogram import Client, enums
 from pyrogram.errors import (
@@ -104,8 +104,13 @@ def _fmt_wait(seconds: object) -> str:
         return "a while"
     minutes, secs = divmod(total, 60)
     hours, minutes = divmod(minutes, 60)
-    parts = [f"{hours}h" if hours else "", f"{minutes}m" if minutes else "", f"{secs}s" if secs else ""]
+    parts = [
+        f"{hours}h" if hours else "",
+        f"{minutes}m" if minutes else "",
+        f"{secs}s" if secs else "",
+    ]
     return " ".join(p for p in parts if p)
+
 
 @contextmanager
 def _interruptible() -> Generator[None, None, None]:
@@ -119,6 +124,7 @@ def _interruptible() -> Generator[None, None, None]:
         yield
     finally:
         signal.signal(signal.SIGINT, previous)
+
 
 def _ask(label: str, *, password: bool = False) -> str:
     with _interruptible():
@@ -214,16 +220,22 @@ async def _send_code(client: Client, phone: str) -> SentCode:
     except PhoneNumberBanned:
         raise AuthError("This phone number is banned by Telegram.") from None
     except PhoneNumberFlood:
-        raise AuthError("Too many login attempts with this number. Try again later.") from None
+        raise AuthError(
+            "Too many login attempts with this number. Try again later."
+        ) from None
     except ApiIdInvalid:
-        raise AuthError("Telegram rejected the API ID / hash. Check gifts_collect/config.py.") from None
+        raise AuthError(
+            "Telegram rejected the API ID / hash. Check gifts_collect/config.py."
+        ) from None
     _announce_delivery(sent)
     return sent
 
 
 async def _resend_code(client: Client, phone: str, sent: SentCode) -> SentCode:
     try:
-        new = await _spin("Resending code…", client.resend_code(phone, sent.phone_code_hash))
+        new = await _spin(
+            "Resending code…", client.resend_code(phone, sent.phone_code_hash)
+        )
     except BadRequest:  # no further delivery method available - start over
         return await _send_code(client, phone)
     _announce_delivery(new)
@@ -268,7 +280,9 @@ async def _login(client: Client) -> User:
             sent = await _resend_code(client, phone, sent)
             continue
         try:
-            result = await _spin("Verifying…", client.sign_in(phone, sent.phone_code_hash, code))
+            result = await _spin(
+                "Verifying…", client.sign_in(phone, sent.phone_code_hash, code)
+            )
         except SessionPasswordNeeded:
             return await _two_factor(client)
         except PhoneCodeInvalid:
@@ -279,11 +293,15 @@ async def _login(client: Client) -> User:
             _warn("Code expired - sending a new one.")
             sent = await _send_code(client, phone)
         except PhoneNumberUnoccupied:
-            raise AuthError("No Telegram account exists for this number. Register in the official app first.") from None
+            raise AuthError(
+                "No Telegram account exists for this number. Register in the official app first."
+            ) from None
         else:
             if isinstance(result, User):
                 return result
-            raise AuthError("No Telegram account exists for this number. Register in the official app first.")
+            raise AuthError(
+                "No Telegram account exists for this number. Register in the official app first."
+            )
     raise AuthError("Too many invalid codes. Restart the app and try again.")
 
 
@@ -343,6 +361,10 @@ async def ensure_session() -> str:
     except Forbidden as e:
         raise _forbidden(e) from None
     except FloodWait as e:
-        raise AuthError(f"Telegram asked us to wait {_fmt_wait(e.value)} before retrying.") from None
-    except (OSError, asyncio.TimeoutError) as e:
-        raise AuthError(f"Couldn't reach Telegram ({e.__class__.__name__}). Check your internet connection.") from None
+        raise AuthError(
+            f"Telegram asked us to wait {_fmt_wait(e.value)} before retrying."
+        ) from None
+    except (TimeoutError, OSError) as e:
+        raise AuthError(
+            f"Couldn't reach Telegram ({e.__class__.__name__}). Check your internet connection."
+        ) from None

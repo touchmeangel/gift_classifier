@@ -2,7 +2,13 @@ import asyncio
 import sys
 
 from gifts_collect.auth_ui import AuthCancelled, AuthError, console, ensure_session
-from gifts_collect.config import API_HASH, API_ID, APP_VERSION, DEVICE_MODEL, SYSTEM_VERSION
+from gifts_collect.config import (
+    API_HASH,
+    API_ID,
+    APP_VERSION,
+    DEVICE_MODEL,
+    SYSTEM_VERSION,
+)
 from gifts_collect.providers.portals.client import PortalsAPI
 from gifts_collect.providers.portals.telegram_auth import telegram_provider
 
@@ -24,7 +30,7 @@ async def main():
         for collection in collections.collections:
             print(f"collection: {collection.name}, floor: {collection.floor_price}")
 
-        actions = await c.actions(action_types=['buy', 'sell'])
+        actions = await c.actions(action_types=["buy", "sell"])
         for action in actions.actions:
             print(f"action: {action.type} {action.nft.name} {action.amount}")
 
