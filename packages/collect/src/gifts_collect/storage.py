@@ -93,44 +93,21 @@ class S3Uploader:
     def upload(self, path: Path, key: str) -> None:
         self.client.upload_file(str(path), self.bucket, key)
 
-    def list_keys(self, prefix: str) -> set[str]:
-        keys: set[str] = set()
-        pages = self.client.get_paginator("list_objects_v2").paginate(
-            Bucket=self.bucket, Prefix=prefix
-        )
-        for page in pages:
-            keys.update(obj["Key"] for obj in page.get("Contents", []))
-        return keys
 
-
-def sync_pending(
-    root: Path, uploader: S3Uploader, days_back: int | None = 3, max_files: int = 500
-) -> tuple[int, int]:
-    cutoff = ""
-    if days_back is not None:
-        cutoff = date_folder(utc_now() - timedelta(days=days_back))
+def sync_pending(root: Path, uploader: S3Uploader, max_files: int = 500) -> tuple[int, int]:
     uploaded = failed = 0
-    for part in sorted(root.glob(f"*/*/{DATE_FOLDER_PREFIX}*"), reverse=True):
-        if part.name < cutoff:
-            continue
+    for path in sorted(root.rglob("*.json.gz")):
+        key = uploader.key_for(root, path)
         try:
-            remote = uploader.list_keys(uploader.key_for(root, part) + "/")
+            uploader.upload(path, key)
         except (BotoCoreError, ClientError) as e:
-            log.warning("listing failed for %s: %s", part, e)
-            return uploaded, failed + 1
-        for path in sorted(part.glob("*.json.gz")):
-            key = uploader.key_for(root, path)
-            if key in remote:
-                continue
-            try:
-                uploader.upload(path, key)
-            except (BotoCoreError, ClientError) as e:
-                failed += 1
-                log.warning("upload failed for %s: %s", key, e)
-                if failed >= 3:
-                    return uploaded, failed
-                continue
-            uploaded += 1
-            if uploaded >= max_files:
-                return uploaded, failed
+            failed += 1
+            log.warning("upload failed for %s: %s", key, e)
+            if failed >= 3:
+                break
+            continue
+        path.unlink()
+        uploaded += 1
+        if uploaded >= max_files:
+            break
     return uploaded, failed
