@@ -14,7 +14,7 @@ x-collect: &collect
     GIFTS_COLLECT_S3_REGION: ${GIFTS_COLLECT_S3_REGION}
   volumes:
     - ${GIFTS_COLLECT_SESSION_DIR:-./sessions}:/app/sessions
-    - collect-data:/app/data
+    - ${GIFTS_COLLECT_SESSION_DIR:-./data}:/app/data
 
 services:
   login:
@@ -41,6 +41,3 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-
-volumes:
-  collect-data:
