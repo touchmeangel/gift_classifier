@@ -1,5 +1,5 @@
 x-collect: &collect
-  build: { context: ., dockerfile: docker/collect.Dockerfile }
+  image: touchmeangel/gifts_collect:latest
   user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
   environment:
     GIFTS_COLLECT_API_ID: ${GIFTS_COLLECT_API_ID:?set in .env}
