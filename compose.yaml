@@ -13,8 +13,8 @@ x-collect: &collect
     GIFTS_COLLECT_S3_SECRET_ACCESS_KEY: ${GIFTS_COLLECT_S3_SECRET_ACCESS_KEY}
     GIFTS_COLLECT_S3_REGION: ${GIFTS_COLLECT_S3_REGION}
   volumes:
-    - ${GIFTS_COLLECT_DATA_DIR:-data}:/app/data
-    - ${GIFTS_COLLECT_SESSION_DIR:-sessions}:/app/sessions
+    - ${GIFTS_COLLECT_DATA_DIR:-./data}:/app/data
+    - ${GIFTS_COLLECT_SESSION_DIR:-./sessions}:/app/sessions
 
 services:
   login:
