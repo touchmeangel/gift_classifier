@@ -4,7 +4,7 @@ import gzip
 import json
 import logging
 import os
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -16,21 +16,26 @@ log = logging.getLogger(__name__)
 
 DATE_FOLDER_PREFIX = "date="
 
+
 def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
+
 
 def date_folder(date: datetime) -> str:
     return f"{DATE_FOLDER_PREFIX}{date:%Y-%m-%d}"
+
 
 class RawStore:
     def __init__(self, root: Path, source: str) -> None:
         self.root = root
         self.source = source
 
-    def write(self, endpoint: str, payload: Any, fetched_at: datetime | None = None) -> Path:
+    def write(
+        self, endpoint: str, payload: Any, fetched_at: datetime | None = None
+    ) -> Path:
         ts = fetched_at or utc_now()
         stamp = f"{ts:%Y%m%dT%H%M%S_%f}Z"
-        path = (self.root / self.source / endpoint / date_folder(ts) / f"{stamp}.json.gz")
+        path = self.root / self.source / endpoint / date_folder(ts) / f"{stamp}.json.gz"
         path.parent.mkdir(parents=True, exist_ok=True)
         envelope = {
             "schema_version": 1,
@@ -40,7 +45,9 @@ class RawStore:
             "payload": payload,
         }
         data = gzip.compress(
-            json.dumps(envelope, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+            json.dumps(envelope, ensure_ascii=False, separators=(",", ":")).encode(
+                "utf-8"
+            )
         )
         tmp = path.with_name(path.name + ".tmp")
         with open(tmp, "wb") as fh:
@@ -52,7 +59,15 @@ class RawStore:
 
 
 class S3Uploader:
-    def __init__(self, bucket: str, prefix: str, endpoint_url: str | None = None, access_key_id=None, secret_access_key=None, region=None) -> None:
+    def __init__(
+        self,
+        bucket: str,
+        prefix: str,
+        endpoint_url: str | None = None,
+        access_key_id=None,
+        secret_access_key=None,
+        region=None,
+    ) -> None:
 
         self.bucket = bucket
         self.prefix = prefix
@@ -80,12 +95,17 @@ class S3Uploader:
 
     def list_keys(self, prefix: str) -> set[str]:
         keys: set[str] = set()
-        pages = self.client.get_paginator("list_objects_v2").paginate(Bucket=self.bucket, Prefix=prefix)
+        pages = self.client.get_paginator("list_objects_v2").paginate(
+            Bucket=self.bucket, Prefix=prefix
+        )
         for page in pages:
             keys.update(obj["Key"] for obj in page.get("Contents", []))
         return keys
 
-def sync_pending(root: Path, uploader: S3Uploader, days_back: int | None = 3, max_files: int = 500) -> tuple[int, int]:
+
+def sync_pending(
+    root: Path, uploader: S3Uploader, days_back: int | None = 3, max_files: int = 500
+) -> tuple[int, int]:
     cutoff = ""
     if days_back is not None:
         cutoff = date_folder(utc_now() - timedelta(days=days_back))

@@ -34,8 +34,10 @@ SESSION_DIR: Path = Path(os.getenv("GIFTS_COLLECT_SESSION_DIR", "./sessions"))
 SESSION_PATH: Path = SESSION_DIR / "session.string"
 RAW_DIR: Path = DATA_DIR / "raw"
 
+
 def optional_env(name: str) -> str | None:
     return os.getenv(name) or None
+
 
 S3_BUCKET = optional_env("GIFTS_COLLECT_S3_BUCKET")
 S3_ENDPOINT_URL = optional_env("GIFTS_COLLECT_S3_ENDPOINT_URL")

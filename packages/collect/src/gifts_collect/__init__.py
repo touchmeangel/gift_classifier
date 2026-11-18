@@ -1,4 +1,9 @@
-import argparse, asyncio, logging, sys, time
+import argparse
+import asyncio
+import logging
+import sys
+import time
+
 from gifts_collect.auth_ui import AuthCancelled, AuthError, ensure_session
 from gifts_collect.collector import collect
 
@@ -7,9 +12,12 @@ log = logging.getLogger("gifts_collect")
 
 def setup_logging() -> None:
     if sys.stderr.isatty():
-        from rich.logging import RichHandler
         from rich.console import Console
-        handler: logging.Handler = RichHandler(console=Console(stderr=True), show_path=False, rich_tracebacks=True)
+        from rich.logging import RichHandler
+
+        handler: logging.Handler = RichHandler(
+            console=Console(stderr=True), show_path=False, rich_tracebacks=True
+        )
         handler.setFormatter(logging.Formatter("%(message)s"))
     else:
         handler = logging.StreamHandler()

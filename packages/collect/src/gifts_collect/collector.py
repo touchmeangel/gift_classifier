@@ -4,11 +4,8 @@ import asyncio
 import logging
 import random
 import time
-from datetime import datetime
 
 from pyrogram.errors import FloodWait
-
-from gifts_collect.providers.portals.types.actions import ActionsResponse
 
 from gifts_collect import config
 from gifts_collect.auth_ui import require_session
@@ -26,7 +23,11 @@ async def collect_once(client: PortalsAPI, store: RawStore) -> None:
     store.write("collections", collections.model_dump(mode="json"))
     actions = await client.actions(action_types=["buy", "sell"])
     store.write("actions", actions.model_dump(mode="json"))
-    log.info("saved %d collections, %d actions", len(collections.collections), len(actions.actions))
+    log.info(
+        "saved %d collections, %d actions",
+        len(collections.collections),
+        len(actions.actions),
+    )
 
 
 async def collect(*, once: bool, interval: int) -> int:
@@ -34,7 +35,14 @@ async def collect(*, once: bool, interval: int) -> int:
     config.ensure_dirs()
     store = RawStore(config.RAW_DIR, SOURCE)
     uploader = (
-        S3Uploader(config.S3_BUCKET, config.S3_PREFIX, config.S3_ENDPOINT_URL, config.S3_ACCESS_KEY_ID, config.S3_SECRET_ACCESS_KEY, config.S3_REGION)
+        S3Uploader(
+            config.S3_BUCKET,
+            config.S3_PREFIX,
+            config.S3_ENDPOINT_URL,
+            config.S3_ACCESS_KEY_ID,
+            config.S3_SECRET_ACCESS_KEY,
+            config.S3_REGION,
+        )
         if config.S3_BUCKET
         else None
     )
@@ -44,7 +52,9 @@ async def collect(*, once: bool, interval: int) -> int:
     failures = 0
     async with PortalsAPI(
         auth_provider=telegram_provider(
-            config.API_ID, config.API_HASH, session_string,
+            config.API_ID,
+            config.API_HASH,
+            session_string,
             device_model=config.DEVICE_MODEL,
             app_version=config.APP_VERSION,
             system_version=config.SYSTEM_VERSION,
@@ -67,7 +77,9 @@ async def collect(*, once: bool, interval: int) -> int:
                 continue
             except Exception:
                 failures += 1
-                log.exception("collection failed (%d/%d)", failures, MAX_CONSECUTIVE_FAILURES)
+                log.exception(
+                    "collection failed (%d/%d)", failures, MAX_CONSECUTIVE_FAILURES
+                )
                 if failures >= MAX_CONSECUTIVE_FAILURES:
                     return 1
 
@@ -80,5 +92,7 @@ async def collect(*, once: bool, interval: int) -> int:
 
             if once:
                 return 1 if failures else 0
-            jitter = random.uniform(0, 5)
-            await asyncio.sleep(max(0.0, interval - (time.monotonic() - started)) + jitter)
+            jitter = random.uniform(0, 5) # noqa: S311, safe we dont need cryptographically secure random here
+            await asyncio.sleep(
+                max(0.0, interval - (time.monotonic() - started)) + jitter
+            )
