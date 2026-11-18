@@ -1,5 +1,6 @@
 x-collect: &collect
   image: touchmeangel/gifts_collect:latest
+  user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
   environment:
     GIFTS_COLLECT_API_ID: ${GIFTS_COLLECT_API_ID:?set in .env}
     GIFTS_COLLECT_API_HASH: ${GIFTS_COLLECT_API_HASH:?set in .env}
@@ -12,8 +13,8 @@ x-collect: &collect
     GIFTS_COLLECT_S3_SECRET_ACCESS_KEY: ${GIFTS_COLLECT_S3_SECRET_ACCESS_KEY}
     GIFTS_COLLECT_S3_REGION: ${GIFTS_COLLECT_S3_REGION}
   volumes:
+    - ${GIFTS_COLLECT_SESSION_DIR:-./sessions}:/app/sessions
     - collect-data:/app/data
-    - collect-sessions:/app/sessions
 
 services:
   login:
