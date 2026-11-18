@@ -4,7 +4,7 @@ import gzip
 import json
 import logging
 import os
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +15,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 log = logging.getLogger(__name__)
 
 DATE_FOLDER_PREFIX = "date="
+
 
 def date_folder(date: datetime) -> str:
     return f"{DATE_FOLDER_PREFIX}{date:%Y-%m-%d}"
@@ -89,7 +90,9 @@ class S3Uploader:
         self.client.upload_file(str(path), self.bucket, key)
 
 
-def sync_pending(root: Path, uploader: S3Uploader, max_files: int = 500) -> tuple[int, int]:
+def sync_pending(
+    root: Path, uploader: S3Uploader, max_files: int = 500
+) -> tuple[int, int]:
     uploaded = failed = 0
     for path in sorted(root.rglob("*.json.gz")):
         key = uploader.key_for(root, path)

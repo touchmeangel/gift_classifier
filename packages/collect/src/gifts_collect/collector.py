@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, UTC
-from pathlib import Path
 import asyncio
 import logging
 import random
 import time
+from datetime import UTC, datetime, timedelta
 
 from pyrogram.errors import FloodWait
 
@@ -21,11 +20,20 @@ MAX_CONSECUTIVE_FAILURES = 5
 
 OVERLAP = timedelta(minutes=1)
 
-async def collect_actions(client: PortalsAPI, store: RawStore, last_seen: datetime, page_size: int=20, max_pages: int=50) -> tuple[datetime, int]:
+
+async def collect_actions(
+    client: PortalsAPI,
+    store: RawStore,
+    last_seen: datetime,
+    page_size: int = 20,
+    max_pages: int = 50,
+) -> tuple[datetime, int]:
     newest, reached = last_seen, False
     amount_collected = 0
     for page in range(max_pages):
-        resp = await client.actions(action_types=["buy", "sell"], limit=page_size, offset=page * page_size)
+        resp = await client.actions(
+            action_types=["buy", "sell"], limit=page_size, offset=page * page_size
+        )
         if not resp.actions:
             reached = True
             break
@@ -40,7 +48,10 @@ async def collect_actions(client: PortalsAPI, store: RawStore, last_seen: dateti
         log.warning("page cap hit before reaching last seen action: possible gap")
     return newest, amount_collected
 
-async def collect_once(client: PortalsAPI, store: RawStore, last_seen: datetime | None) -> datetime:
+
+async def collect_once(
+    client: PortalsAPI, store: RawStore, last_seen: datetime | None
+) -> datetime:
     collections = await client.collections()
     store.write("collections", collections.model_dump(mode="json"))
     if last_seen is None:
@@ -50,11 +61,11 @@ async def collect_once(client: PortalsAPI, store: RawStore, last_seen: datetime 
             len(collections.collections),
         )
     else:
-        last_seen, l = await collect_actions(client, store, last_seen)
+        last_seen, amount_actions = await collect_actions(client, store, last_seen)
         log.info(
             "saved %d collections, %d actions",
             len(collections.collections),
-            l,
+            amount_actions,
         )
     return last_seen
 
