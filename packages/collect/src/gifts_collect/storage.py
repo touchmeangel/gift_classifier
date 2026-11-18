@@ -53,6 +53,7 @@ class RawStore:
 
 class S3Uploader:
     def __init__(self, bucket: str, prefix: str, endpoint_url: str | None = None, access_key_id=None, secret_access_key=None, region=None) -> None:
+
         self.bucket = bucket
         self.prefix = prefix
         self.client = boto3.client(

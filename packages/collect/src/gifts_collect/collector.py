@@ -34,7 +34,7 @@ async def collect(*, once: bool, interval: int) -> int:
     config.ensure_dirs()
     store = RawStore(config.RAW_DIR, SOURCE)
     uploader = (
-        S3Uploader(config.S3_BUCKET, config.S3_PREFIX, config.S3_ENDPOINT_URL)
+        S3Uploader(config.S3_BUCKET, config.S3_PREFIX, config.S3_ENDPOINT_URL, config.S3_ACCESS_KEY_ID, config.S3_SECRET_ACCESS_KEY, config.S3_REGION)
         if config.S3_BUCKET
         else None
     )
