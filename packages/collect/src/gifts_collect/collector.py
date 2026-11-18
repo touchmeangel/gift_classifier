@@ -51,7 +51,7 @@ async def collect_actions(
             except RateLimitError as e:
                 attempt += 1
                 delay = min(
-                    retry_delay * random.uniform(0.8, 1.2), # noqa: S311, safe we dont need cryptographically secure random here
+                    retry_delay * random.uniform(0.8, 1.2),  # noqa: S311, safe we dont need cryptographically secure random here
                     RATE_LIMIT_RETRY_MAX,
                 )
 
