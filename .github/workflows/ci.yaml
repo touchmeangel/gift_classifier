@@ -1,4 +1,4 @@
-name: Lint, Type Check & Test
+name: gift_regression CI
 on:
   pull_request:
     branches: [main]
@@ -53,6 +53,7 @@ jobs:
           path: junit.xml
 
   collect:
+    name: gift_collect docker deployment
     needs: quality-checks
     runs-on: ubuntu-latest
     timeout-minutes: 20
