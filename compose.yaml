@@ -26,7 +26,7 @@ services:
     restart: "no"
   collect:
     <<: *collect
-    command: ["run", "--interval", "300"]
+    command: ["collect", "--interval", "300"]
     restart: unless-stopped
   train:
     build: { context: ., dockerfile: docker/ml.Dockerfile }
