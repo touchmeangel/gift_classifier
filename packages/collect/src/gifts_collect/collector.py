@@ -10,7 +10,7 @@ from pyrogram.errors import FloodWait
 
 from gifts_collect import config
 from gifts_collect.auth_ui import require_session
-from gifts_collect.providers.portals.client import PortalsAPI, RateLimitError
+from gifts_collect.providers.portals.client import PortalsAPI
 from gifts_collect.providers.portals.telegram_auth import telegram_provider
 from gifts_collect.storage import RawStore, S3Uploader, sync_pending
 
@@ -19,10 +19,6 @@ SOURCE = "portals"
 MAX_CONSECUTIVE_FAILURES = 5
 
 OVERLAP = timedelta(minutes=1)
-
-RATE_LIMIT_RETRY_BASE = 5
-RATE_LIMIT_RETRY_MAX = 300
-
 
 async def collect_actions(
     client: PortalsAPI,
@@ -36,39 +32,7 @@ async def collect_actions(
 
     for page in range(max_pages):
         offset = page * page_size
-        retry_delay = RATE_LIMIT_RETRY_BASE
-        attempt = 0
-
-        while True:
-            try:
-                resp = await client.actions(
-                    action_types=["buy", "sell"],
-                    limit=page_size,
-                    offset=offset,
-                )
-                break
-            except RateLimitError as e:
-                attempt += 1
-                delay = min(
-                    retry_delay * random.uniform(0.8, 1.2),  # noqa: S311, safe we dont need cryptographically secure random here
-                    RATE_LIMIT_RETRY_MAX,
-                )
-
-                log.warning(
-                    "rate limited on actions page %d (offset=%d), "
-                    "retrying in %.1fs (attempt %d): %s",
-                    page + 1,
-                    offset,
-                    delay,
-                    attempt,
-                    e,
-                )
-
-                await asyncio.sleep(delay)
-                retry_delay = min(
-                    retry_delay * 2,
-                    RATE_LIMIT_RETRY_MAX,
-                )
+        resp = await client.actions(action_types=["buy", "sell"], limit=page_size, offset=offset)
 
         if not resp.actions:
             reached = True
