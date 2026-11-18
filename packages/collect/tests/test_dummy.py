@@ -1,6 +1,6 @@
 import pytest
-
 from gifts_collect.providers.portals.client import PortalsAPI
+
 
 @pytest.mark.asyncio
 async def test_collections_without_credentials(monkeypatch):
