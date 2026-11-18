@@ -22,7 +22,7 @@ def setup_logging() -> None:
 
 def start() -> None:
     parser = argparse.ArgumentParser(prog="gifts-collect")
-    sub = parser.add_subparsers(dest="cmd", required=True)
+    sub = parser.add_subparsers(dest="action", required=True)
     sub.add_parser("login", help="interactive Telegram login (run once)")
     r = sub.add_parser("collect", help="collect, save locally, upload")
     r.add_argument("--once", action="store_true", help="one cycle then exit")
@@ -30,9 +30,9 @@ def start() -> None:
     args = parser.parse_args()
     setup_logging()
     try:
-        if args.cmd == "login":
+        if args.action == "login":
             asyncio.run(ensure_session())
-        elif args.cmd == "collect":
+        elif args.action == "collect":
             asyncio.run(collect(once=args.once, interval=args.interval))
     except AuthCancelled:
         sys.exit(130)
