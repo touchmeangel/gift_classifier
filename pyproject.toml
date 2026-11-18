@@ -44,7 +44,9 @@ disallow_untyped_defs = false
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-testpaths = ["packages"]
+pythonpath = ["packages/collect/src"]
+testpaths = ["packages/collect/tests"]
+asyncio_mode = "auto"
 addopts = "-v --import-mode=importlib --cov=packages --cov-report=term-missing --cov-report=xml"
 
 [tool.uv.workspace]
