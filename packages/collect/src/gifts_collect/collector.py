@@ -23,6 +23,7 @@ OVERLAP = timedelta(minutes=1)
 RATE_LIMIT_RETRY_BASE = 5
 RATE_LIMIT_RETRY_MAX = 300
 
+
 async def collect_actions(
     client: PortalsAPI,
     store: RawStore,
@@ -50,7 +51,7 @@ async def collect_actions(
             except RateLimitError as e:
                 attempt += 1
                 delay = min(
-                    retry_delay * random.uniform(0.8, 1.2),
+                    retry_delay * random.uniform(0.8, 1.2), # noqa: S311, safe we dont need cryptographically secure random here
                     RATE_LIMIT_RETRY_MAX,
                 )
 

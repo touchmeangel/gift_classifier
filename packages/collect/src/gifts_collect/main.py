@@ -1,14 +1,14 @@
-from pathlib import Path
 import argparse
 import asyncio
 import logging
+import os
 import sys
 import time
-import os
+from pathlib import Path
 
 from gifts_collect.auth_ui import AuthCancelled, AuthError, ensure_session
-from gifts_collect.config import SESSION_DIR, DATA_DIR
 from gifts_collect.collector import collect
+from gifts_collect.config import DATA_DIR, SESSION_DIR
 
 log = logging.getLogger("gifts_collect")
 
@@ -30,6 +30,7 @@ def setup_logging() -> None:
     logging.basicConfig(level=logging.INFO, handlers=[handler])
     logging.getLogger("pyrogram").setLevel(logging.WARNING)
 
+
 def check_writable(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
     probe = path / ".write-test"
@@ -42,10 +43,11 @@ def check_writable(path: Path) -> None:
             f"{path} is not writable by uid {uid}: {e}. Fix the volume ownership."
         ) from e
 
+
 def main():
     check_writable(DATA_DIR)
     check_writable(SESSION_DIR)
-    
+
     parser = argparse.ArgumentParser(prog="gifts-collect")
     sub = parser.add_subparsers(dest="action", required=True)
     sub.add_parser("login", help="interactive Telegram login (run once)")
