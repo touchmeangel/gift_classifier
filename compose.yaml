@@ -1,10 +1,33 @@
+x-collect: &collect
+  build: { context: ., dockerfile: docker/collect.Dockerfile }
+  user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+  environment:
+    GIFTS_COLLECT_API_ID: ${GIFTS_COLLECT_API_ID:?set in .env}
+    GIFTS_COLLECT_API_HASH: ${GIFTS_COLLECT_API_HASH:?set in .env}
+    GIFTS_COLLECT_DATA_DIR: /app/data
+    GIFTS_COLLECT_SESSION_DIR: /app/sessions
+    GIFTS_COLLECT_S3_BUCKET: ${GIFTS_COLLECT_S3_BUCKET}
+    GIFTS_COLLECT_S3_ENDPOINT_URL: ${GIFTS_COLLECT_S3_ENDPOINT_URL}
+    GIFTS_COLLECT_S3_PREFIX: ${GIFTS_COLLECT_S3_PREFIX}
+    GIFTS_COLLECT_S3_ACCESS_KEY_ID: ${GIFTS_COLLECT_S3_ACCESS_KEY_ID}
+    GIFTS_COLLECT_S3_SECRET_ACCESS_KEY: ${GIFTS_COLLECT_S3_SECRET_ACCESS_KEY}
+    GIFTS_COLLECT_S3_REGION: ${GIFTS_COLLECT_S3_REGION}
+  volumes:
+    - ${GIFTS_COLLECT_DATA_DIR}:/app/data
+    - ${GIFTS_COLLECT_SESSION_DIR}:/app/sessions
+
 services:
+  login:
+    <<: *collect
+    profiles: ["login"]
+    command: ["login"]
+    stdin_open: true
+    tty: true
+    restart: "no"
   collect:
-    build: { context: ., dockerfile: docker/collect.Dockerfile }
+    <<: *collect
+    command: ["run", "--interval", "300"]
     restart: unless-stopped
-    env_file: .env
-    volumes:
-      - ./data:/app/data
   train:
     build: { context: ., dockerfile: docker/ml.Dockerfile }
     profiles: ["train"]

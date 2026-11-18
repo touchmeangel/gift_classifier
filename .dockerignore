@@ -1,4 +1,7 @@
-data/
 .git
 .venv
+.vscode
+data/
 runs/
+sessions/
+unknown_errors.txt

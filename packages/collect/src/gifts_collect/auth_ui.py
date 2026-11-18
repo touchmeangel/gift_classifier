@@ -334,6 +334,13 @@ async def _check_session(session_string: str) -> User | None:
 def _forbidden(e: Forbidden) -> AuthError:
     return AuthError(f"Telegram refused the request: {e}")
 
+async def require_session() -> str:
+    saved = load_session()
+    if not saved:
+        raise AuthError("No saved session. Run `gifts-collect login` interactively first.")
+    if await _check_session(saved) is None:
+        raise AuthError("Saved session is invalid. Run `gifts-collect login` again.")
+    return saved
 
 async def ensure_session() -> str:
     try:
