@@ -16,11 +16,6 @@ log = logging.getLogger(__name__)
 
 DATE_FOLDER_PREFIX = "date="
 
-
-def utc_now() -> datetime:
-    return datetime.now(UTC)
-
-
 def date_folder(date: datetime) -> str:
     return f"{DATE_FOLDER_PREFIX}{date:%Y-%m-%d}"
 
@@ -33,7 +28,7 @@ class RawStore:
     def write(
         self, endpoint: str, payload: Any, fetched_at: datetime | None = None
     ) -> Path:
-        ts = fetched_at or utc_now()
+        ts = fetched_at or datetime.now(UTC)
         stamp = f"{ts:%Y%m%dT%H%M%S_%f}Z"
         path = self.root / self.source / endpoint / date_folder(ts) / f"{stamp}.json.gz"
         path.parent.mkdir(parents=True, exist_ok=True)

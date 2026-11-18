@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, UTC
+from pathlib import Path
 import asyncio
 import logging
 import random
@@ -17,17 +19,44 @@ log = logging.getLogger(__name__)
 SOURCE = "portals"
 MAX_CONSECUTIVE_FAILURES = 5
 
+OVERLAP = timedelta(minutes=1)
 
-async def collect_once(client: PortalsAPI, store: RawStore) -> None:
+async def collect_actions(client: PortalsAPI, store: RawStore, last_seen: datetime, page_size: int=20, max_pages: int=50) -> tuple[datetime, int]:
+    newest, reached = last_seen, False
+    amount_collected = 0
+    for page in range(max_pages):
+        resp = await client.actions(action_types=["buy", "sell"], limit=page_size, offset=page * page_size)
+        if not resp.actions:
+            reached = True
+            break
+        store.write("actions", resp.model_dump(mode="json"))
+        amount_collected += len(resp.actions)
+        times = [a.created_at for a in resp.actions]
+        newest = max(times) if newest is None else max(newest, *times)
+        if min(times) <= last_seen - OVERLAP:
+            reached = True
+            break
+    if not reached:
+        log.warning("page cap hit before reaching last seen action: possible gap")
+    return newest, amount_collected
+
+async def collect_once(client: PortalsAPI, store: RawStore, last_seen: datetime | None) -> datetime:
     collections = await client.collections()
     store.write("collections", collections.model_dump(mode="json"))
-    actions = await client.actions(action_types=["buy", "sell"])
-    store.write("actions", actions.model_dump(mode="json"))
-    log.info(
-        "saved %d collections, %d actions",
-        len(collections.collections),
-        len(actions.actions),
-    )
+    if last_seen is None:
+        last_seen = datetime.now(UTC)
+        log.info(
+            "saved %d collections, listening for actions",
+            len(collections.collections),
+        )
+    else:
+        last_seen, l = await collect_actions(client, store, last_seen)
+        log.info(
+            "saved %d collections, %d actions",
+            len(collections.collections),
+            l,
+        )
+    return last_seen
 
 
 async def collect(*, once: bool, interval: int) -> int:
@@ -60,10 +89,11 @@ async def collect(*, once: bool, interval: int) -> int:
             system_version=config.SYSTEM_VERSION,
         )
     ) as client:
+        last_seen = None
         while True:
             started = time.monotonic()
             try:
-                await collect_once(client, store)
+                last_seen = await collect_once(client, store, last_seen)
                 failures = 0
             except FloodWait as e:
                 wait = 0
