@@ -223,7 +223,9 @@ __marimo__/
 .streamlit/secrets.toml
 
 .vscode
-data/
 runs/
-sessions/
 unknown_errors.txt
+data/*
+!data/.gitkeep
+sessions/*
+!sessions/.gitkeep
