@@ -1,9 +1,9 @@
 import asyncio
 import json
-from collections.abc import Awaitable, Callable, Sequence
-from typing import Any, Literal, TypeAlias, Mapping
-import random
 import logging
+import random
+from collections.abc import Awaitable, Callable, Mapping, Sequence
+from typing import Any, Literal, TypeAlias
 
 import aiohttp
 import pydantic
@@ -13,6 +13,7 @@ from .types.actions import ActionsResponse
 from .types.collections import CollectionsResponse
 
 log = logging.getLogger(__name__)
+
 
 class APIError(Exception):
     def __init__(
@@ -27,11 +28,19 @@ class APIError(Exception):
         self.payload = payload
         super().__init__(f"{status}: {message}")
 
+
 class RateLimitError(APIError):
-    def __init__(self, status: int, message: str, *, payload: Any = None,
-                 retry_after: float | None = None) -> None:
+    def __init__(
+        self,
+        status: int,
+        message: str,
+        *,
+        payload: Any = None,
+        retry_after: float | None = None,
+    ) -> None:
         super().__init__(status, message, payload=payload)
         self.retry_after = retry_after
+
 
 class AuthenticationError(APIError):
     pass
@@ -74,7 +83,14 @@ AuthProvider = Callable[[], Awaitable[str]]
 
 
 class PortalsAPI:
-    def __init__(self, *, auth_provider: AuthProvider | None = None, max_retries: int | None = 8, retry_base: float = 5.0, retry_max: float = 300.0) -> None:
+    def __init__(
+        self,
+        *,
+        auth_provider: AuthProvider | None = None,
+        max_retries: int | None = 8,
+        retry_base: float = 5.0,
+        retry_max: float = 300.0,
+    ) -> None:
         self._provider = auth_provider
         self._auth_lock = asyncio.Lock()
         self._auth = None
@@ -95,7 +111,9 @@ class PortalsAPI:
             await self.session.close()
 
     @staticmethod
-    def raise_for_error(status: int, data: Any, headers: Mapping[str, str] | None = None) -> None:
+    def raise_for_error(
+        status: int, data: Any, headers: Mapping[str, str] | None = None
+    ) -> None:
         if 200 <= status < 300:
             return
 
@@ -124,10 +142,12 @@ class PortalsAPI:
             error_class = ServerError
         else:
             error_class = APIError
-            
+
         if error_class is RateLimitError:
-            raise RateLimitError(status, message, payload=data, retry_after=_parse_retry_after(headers))
-        
+            raise RateLimitError(
+                status, message, payload=data, retry_after=_parse_retry_after(headers)
+            )
+
         raise error_class(status, message, payload=data)
 
     async def _authorize(self, *, stale: str | None = None) -> str:
@@ -142,7 +162,7 @@ class PortalsAPI:
         if retry_after is not None:
             return min(retry_after, self._retry_max)
         delay = self._retry_base * 2 ** (attempt - 1)
-        return min(delay * random.uniform(0.8, 1.2), self._retry_max)
+        return min(delay * random.uniform(0.8, 1.2), self._retry_max) # noqa: S311, safe we dont need cryptographically secure random here
 
     QueryValue: TypeAlias = str | int | float | bool | None
 
@@ -175,8 +195,13 @@ class PortalsAPI:
                 if self._max_retries is not None and attempt > self._max_retries:
                     raise
                 delay = self._backoff(attempt, exc.retry_after)
-                log.warning("rate limited on %s, retrying in %.1fs (attempt %d): %s",
-                            url, delay, attempt, exc)
+                log.warning(
+                    "rate limited on %s, retrying in %.1fs (attempt %d): %s",
+                    url,
+                    delay,
+                    attempt,
+                    exc,
+                )
                 await asyncio.sleep(delay)
 
     async def _send(self, url: str, query: dict, token: str | None) -> Any:
@@ -242,6 +267,7 @@ class PortalsAPI:
             return ActionsResponse.model_validate(data)
         except pydantic.ValidationError as exc:
             raise ResponseParsingError("Unexpected response shape") from exc
+
 
 def _parse_retry_after(headers: Mapping[str, str] | None) -> float | None:
     value = headers.get("Retry-After") if headers else None

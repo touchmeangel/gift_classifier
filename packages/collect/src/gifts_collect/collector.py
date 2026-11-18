@@ -20,6 +20,7 @@ MAX_CONSECUTIVE_FAILURES = 5
 
 OVERLAP = timedelta(minutes=1)
 
+
 async def collect_actions(
     client: PortalsAPI,
     store: RawStore,
@@ -32,7 +33,9 @@ async def collect_actions(
 
     for page in range(max_pages):
         offset = page * page_size
-        resp = await client.actions(action_types=["buy", "sell"], limit=page_size, offset=offset)
+        resp = await client.actions(
+            action_types=["buy", "sell"], limit=page_size, offset=offset
+        )
 
         if not resp.actions:
             reached = True
