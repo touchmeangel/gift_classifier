@@ -92,7 +92,7 @@ async def collect(*, once: bool, interval: int) -> int:
 
             if once:
                 return 1 if failures else 0
-            jitter = random.uniform(0, 5) # noqa: S311, safe we dont need cryptographically secure random here
+            jitter = random.uniform(0, 5)  # noqa: S311, safe we dont need cryptographically secure random here
             await asyncio.sleep(
                 max(0.0, interval - (time.monotonic() - started)) + jitter
             )
