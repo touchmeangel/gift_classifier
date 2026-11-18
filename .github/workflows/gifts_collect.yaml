@@ -1,8 +1,9 @@
 name: Gifts Collect Release
 on:
-  push:
-    branches: [main]
-  pull_request:
+  workflow_run:
+    workflows: ["Lint, Type Check & Test"]
+    types:
+      - completed
 
 permissions:
   contents: read
