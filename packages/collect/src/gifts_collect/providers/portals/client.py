@@ -162,7 +162,7 @@ class PortalsAPI:
         if retry_after is not None:
             return min(retry_after, self._retry_max)
         delay = self._retry_base * 2 ** (attempt - 1)
-        return min(delay * random.uniform(0.8, 1.2), self._retry_max) # noqa: S311, safe we dont need cryptographically secure random here
+        return min(delay * random.uniform(0.8, 1.2), self._retry_max)  # noqa: S311, safe we dont need cryptographically secure random here
 
     QueryValue: TypeAlias = str | int | float | bool | None
 
