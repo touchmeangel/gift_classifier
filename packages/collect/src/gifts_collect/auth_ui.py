@@ -332,11 +332,6 @@ async def _check_session(session_string: str) -> User | None:
 
 
 def _forbidden(e: Forbidden) -> AuthError:
-    if "RECAPTCHA" in str(e):
-        return AuthError(
-            "Telegram requires a reCAPTCHA check for this login, which only official apps can complete. "
-            "Try again later or from another network."
-        )
     return AuthError(f"Telegram refused the request: {e}")
 
 
