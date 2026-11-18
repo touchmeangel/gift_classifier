@@ -47,7 +47,6 @@ async def collect_actions(
                     offset=offset,
                 )
                 break
-
             except RateLimitError as e:
                 attempt += 1
                 delay = min(
