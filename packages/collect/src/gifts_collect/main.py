@@ -9,6 +9,7 @@ from gifts_collect.collector import collect
 
 log = logging.getLogger("gifts_collect")
 
+
 def setup_logging() -> None:
     if sys.stderr.isatty():
         from rich.console import Console
@@ -25,6 +26,7 @@ def setup_logging() -> None:
         handler.setFormatter(fmt)
     logging.basicConfig(level=logging.INFO, handlers=[handler])
     logging.getLogger("pyrogram").setLevel(logging.WARNING)
+
 
 def main():
     parser = argparse.ArgumentParser(prog="gifts-collect")
